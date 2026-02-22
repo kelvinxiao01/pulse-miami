@@ -8,7 +8,7 @@ from livekit.plugins.turn_detector.english import EnglishModel
 
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
-PROMPT = (Path(__file__).resolve().parent.parent / "prompts" / "GENERIC_PROMPT.md").read_text()
+PROMPT = (Path(__file__).resolve().parent.parent / "prompts" / "CLOUD_9_SYSTEM_PROMPT.md").read_text()
 
 server = AgentServer()
 
