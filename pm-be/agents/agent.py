@@ -10,6 +10,8 @@ from livekit.plugins.turn_detector.english import EnglishModel
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 PROMPT = (Path(__file__).resolve().parent.parent / "prompts" / "CLOUD_9_SYSTEM_PROMPT.md").read_text()
+TBI_KNOWLEDGE = (Path(__file__).resolve().parent.parent / "prompts" / "TBI_KNOWLEDGE.md").read_text()
+STORIES = (Path(__file__).resolve().parent.parent / "prompts" / "STORIES.md").read_text()
 
 server = AgentServer()
 
@@ -38,7 +40,10 @@ async def my_agent(ctx: agents.JobContext):
     if activity:
         context += f"The user chose this activity: {activity}.\n"
 
-    instructions = context + PROMPT if context else PROMPT
+    base_prompt = PROMPT + "\n\n" + TBI_KNOWLEDGE
+    if activity == "Game":
+        base_prompt += "\n\n" + STORIES
+    instructions = context + base_prompt if context else base_prompt
 
     class Assistant(Agent):
         def __init__(self) -> None:
