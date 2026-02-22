@@ -1,3 +1,4 @@
+import json
 import os
 import uuid
 
@@ -26,13 +27,19 @@ async def get_token(request: Request):
     room_name = body.get("room_name") or f"room-{uuid.uuid4().hex[:8]}"
     identity = body.get("participant_identity") or f"user-{uuid.uuid4().hex[:8]}"
 
+    mood = body.get("mood", "")
+    activity = body.get("activity", "")
+    participant_metadata = json.dumps({"mood": mood, "activity": activity})
+    print(f"[CLOUD9] Token request - mood: {mood}, activity: {activity}")
+
     token = (
         AccessToken(os.getenv("LIVEKIT_API_KEY"), os.getenv("LIVEKIT_API_SECRET"))
         .with_identity(identity)
         .with_grants(VideoGrants(room_join=True, room=room_name))
         .with_room_config(
             RoomConfiguration(
-                agents=[RoomAgentDispatch(agent_name="my-agent")]
+                agents=[RoomAgentDispatch(agent_name="my-agent")],
+                metadata=participant_metadata,
             )
         )
         .to_jwt()

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
   RoomAudioRenderer,
   useSession,
@@ -10,8 +10,6 @@ import {
 } from "@livekit/components-react";
 import { TokenSource } from "livekit-client";
 import "@livekit/components-styles";
-
-const tokenSource = TokenSource.endpoint("http://localhost:8000/token");
 
 const clouds = [
   { id: 1, top: "8%", left: "5%", size: 120, delay: 0, speed: 60 },
@@ -109,12 +107,37 @@ function VoiceScreen({ onDisconnect }: { onDisconnect: () => void }) {
 }
 
 export default function Cloud9() {
-  const session = useSession(tokenSource, { agentName: "my-agent" });
-  const [screen, setScreen] = useState<"home" | "mood" | "confirm" | "voice" | "menu">("home");
+  const [screen, setScreen] = useState<"home" | "mood" | "confirm" | "menu" | "voice">("home");
   const [selected, setSelected] = useState<number | null>(null);
+  const [activity, setActivity] = useState<string | null>(null);
   const [started, setStarted] = useState(false);
 
-  const handleConnect = () => {
+  const moodRef = useRef<string>("");
+  const activityRef = useRef<string>("");
+
+  const tokenSource = useRef(
+    TokenSource.custom(async (options) => {
+      const res = await fetch("http://localhost:8000/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          room_name: options.roomName,
+          participant_identity: options.participantIdentity,
+          mood: moodRef.current,
+          activity: activityRef.current,
+        }),
+      });
+      return res.json();
+    })
+  ).current;
+
+  const session = useSession(tokenSource, { agentName: "my-agent" });
+
+  const handleConnect = (item: string) => {
+    const mood = selected !== null ? faces[selected].label : "";
+    moodRef.current = mood;
+    activityRef.current = item;
+    setActivity(item);
     session.start();
     setStarted(true);
     setScreen("voice");
@@ -123,7 +146,7 @@ export default function Cloud9() {
   const handleDisconnect = () => {
     session.end();
     setStarted(false);
-    setScreen("menu");
+    setScreen("home");
   };
 
   const menuItems = ["Memory Games", "Reflection", "Vacation"];
@@ -189,7 +212,7 @@ export default function Cloud9() {
             </p>
             <div style={{ display: "flex", gap: 20 }}>
               <button className="cta-btn" onClick={() => setScreen("mood")} style={{ background: "rgba(255,255,255,0.2)", border: "2px solid rgba(255,255,255,0.7)", color: "white", borderRadius: 30, padding: "18px 56px", fontWeight: 800, fontSize: 20, cursor: "pointer" }}>No</button>
-              <button className="cta-btn" onClick={handleConnect} style={{ background: "white", color: "#5ba3c9", border: "none", borderRadius: 30, padding: "18px 56px", fontWeight: 800, fontSize: 20, cursor: "pointer", boxShadow: "0 8px 30px rgba(0,0,0,0.12)" }}>Yes</button>
+              <button className="cta-btn" onClick={() => setScreen("menu")} style={{ background: "white", color: "#5ba3c9", border: "none", borderRadius: 30, padding: "18px 56px", fontWeight: 800, fontSize: 20, cursor: "pointer", boxShadow: "0 8px 30px rgba(0,0,0,0.12)" }}>Yes</button>
             </div>
           </div>
         )}
@@ -198,7 +221,7 @@ export default function Cloud9() {
         {screen === "menu" && (
           <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", gap: 28, padding: "0 40px", animation: "fadeIn 0.6s ease both", position: "relative", zIndex: 5 }}>
             {menuItems.map(item => (
-              <div key={item} style={{
+              <div key={item} onClick={() => handleConnect(item)} style={{
                 width: "100%", maxWidth: 360,
                 background: "rgba(100,140,170,0.55)",
                 borderRadius: 20,
