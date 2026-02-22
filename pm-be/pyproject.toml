@@ -9,4 +9,6 @@ dependencies = [
     "livekit-agents[silero,turn-detector,deepgram,google,cartesia]~=1.4",
     "livekit-plugins-noise-cancellation~=0.2",
     "python-dotenv>=1.2.1",
+    "fastapi>=0.115.0",
+    "uvicorn>=0.34.0",
 ]
