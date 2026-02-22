@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   RoomAudioRenderer,
   useSession,
   SessionProvider,
   useAgent,
   BarVisualizer,
+  useSessionMessages,
 } from "@livekit/components-react";
 import { TokenSource } from "livekit-client";
 import "@livekit/components-styles";
@@ -70,6 +71,33 @@ function getStateLabel(state: string): string {
 
 function VoiceScreen({ onDisconnect }: { onDisconnect: () => void }) {
   const agent = useAgent();
+  const { messages } = useSessionMessages();
+  const [correctFlash, setCorrectFlash] = useState(false);
+  const prevMessageCount = useRef(0);
+
+  useEffect(() => {
+    if (messages.length <= prevMessageCount.current) {
+      prevMessageCount.current = messages.length;
+      return;
+    }
+    const newMessages = messages.slice(prevMessageCount.current);
+    prevMessageCount.current = messages.length;
+
+    const hasCorrect = newMessages.some(
+      (m) => m.type === "agentTranscript" && /\bcorrect\b/i.test(m.message)
+    );
+    if (hasCorrect) {
+      setCorrectFlash(true);
+      setTimeout(() => setCorrectFlash(false), 1500);
+    }
+  }, [messages]);
+
+  const borderColor = correctFlash ? "#4ade80" : "rgba(255,255,255,0.4)";
+  const glowStyle = correctFlash
+    ? "0 0 40px rgba(74, 222, 128, 0.5)"
+    : agent.state === "speaking"
+      ? "0 0 40px rgba(255,255,255,0.2)"
+      : "none";
 
   return (
     <div style={{
@@ -86,11 +114,10 @@ function VoiceScreen({ onDisconnect }: { onDisconnect: () => void }) {
       <div style={{
         background: agent.state === "speaking"
           ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.1)",
-        border: "2px solid rgba(255,255,255,0.4)",
+        border: `2px solid ${borderColor}`,
         borderRadius: 28, padding: "32px 40px",
-        transition: "background 0.3s, box-shadow 0.3s",
-        boxShadow: agent.state === "speaking"
-          ? "0 0 40px rgba(255,255,255,0.2)" : "none",
+        transition: "background 0.3s, box-shadow 0.3s, border-color 0.3s",
+        boxShadow: glowStyle,
         height: 184, display: "flex", alignItems: "center",
       }}>
         {agent.microphoneTrack && (
@@ -149,7 +176,7 @@ export default function Cloud9() {
     setScreen("home");
   };
 
-  const menuItems = ["Memory Games", "Reflection", "Vacation"];
+  const menuItems = ["Memory", "Reflection", "Relax"];
 
   const selectedFace = selected !== null ? faces[selected] : null;
 
