@@ -41,7 +41,7 @@ async def my_agent(ctx: agents.JobContext):
         context += f"The user chose this activity: {activity}.\n"
 
     base_prompt = PROMPT + "\n\n" + TBI_KNOWLEDGE
-    if activity == "Memory":
+    if activity == "Game":
         base_prompt += "\n\n" + STORIES
     instructions = context + base_prompt if context else base_prompt
 

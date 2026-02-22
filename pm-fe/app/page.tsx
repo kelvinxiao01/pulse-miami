@@ -176,7 +176,7 @@ export default function Cloud9() {
     setScreen("home");
   };
 
-  const menuItems = ["Memory", "Reflection", "Relax"];
+  const menuItems = ["Game", "Chat"]
 
   const selectedFace = selected !== null ? faces[selected] : null;
 
