@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -13,13 +14,36 @@ PROMPT = (Path(__file__).resolve().parent.parent / "prompts" / "CLOUD_9_SYSTEM_P
 server = AgentServer()
 
 
-class Assistant(Agent):
-    def __init__(self) -> None:
-        super().__init__(instructions=PROMPT)
-
-
 @server.rtc_session(agent_name="my-agent")
 async def my_agent(ctx: agents.JobContext):
+    await ctx.connect()
+
+    # Read mood/activity from room metadata (set by token server via RoomConfiguration)
+    mood = ""
+    activity = ""
+    room_metadata = ctx.room.metadata
+    if room_metadata:
+        print(f"[CLOUD9] room metadata: {room_metadata}")
+        metadata = json.loads(room_metadata)
+        mood = metadata.get("mood", "")
+        activity = metadata.get("activity", "")
+    else:
+        print("[CLOUD9] No room metadata found")
+
+    participant = await ctx.wait_for_participant()
+
+    context = ""
+    if mood:
+        context += f"The user said they are feeling: {mood}.\n"
+    if activity:
+        context += f"The user chose this activity: {activity}.\n"
+
+    instructions = context + PROMPT if context else PROMPT
+
+    class Assistant(Agent):
+        def __init__(self) -> None:
+            super().__init__(instructions=instructions)
+
     session = AgentSession(
         preemptive_generation=True,
         turn_detection=EnglishModel(),
@@ -43,9 +67,12 @@ async def my_agent(ctx: agents.JobContext):
         ),
     )
 
-    await session.generate_reply(
-        instructions="Greet the user and offer your assistance."
-    )
+    if mood:
+        greeting = f"Hi there. I hear you are feeling {mood.lower()}. I am here for you. What would you like to do?"
+    else:
+        greeting = "Hi there. I am here for you. What would you like to do?"
+
+    await session.say(greeting, allow_interruptions=False)
 
 
 if __name__ == "__main__":

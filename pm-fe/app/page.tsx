@@ -1,6 +1,15 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef } from "react";
+import {
+  RoomAudioRenderer,
+  useSession,
+  SessionProvider,
+  useAgent,
+  BarVisualizer,
+} from "@livekit/components-react";
+import { TokenSource } from "livekit-client";
+import "@livekit/components-styles";
 
 const clouds = [
   { id: 1, top: "8%", left: "5%", size: 120, delay: 0, speed: 60 },
@@ -43,57 +52,109 @@ function FaceIcon({ bg, renderFace, size = 88, onClick }: any) {
   );
 }
 
-const BAR_COUNT = 30;
+function getStateLabel(state: string): string {
+  switch (state) {
+    case "connecting":
+    case "initializing":
+      return "Connecting...";
+    case "listening":
+      return "Listening...";
+    case "thinking":
+      return "Thinking...";
+    case "speaking":
+      return "Speaking...";
+    default:
+      return "Starting...";
+  }
+}
 
-function Waveform({ active }: { active: boolean }) {
-  const [heights, setHeights] = useState(() => Array.from({ length: BAR_COUNT }, () => 0.3));
-  const rafRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    if (!active) {
-      setHeights(Array.from({ length: BAR_COUNT }, () => 0.3));
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-      return;
-    }
-    let t = 0;
-    const animate = () => {
-      t += 0.08;
-      setHeights(Array.from({ length: BAR_COUNT }, (_, i) => {
-        const base = Math.sin(t + i * 0.45) * 0.35 + 0.5;
-        const noise = Math.sin(t * 2.3 + i * 0.9) * 0.15;
-        return Math.max(0.08, Math.min(1, base + noise));
-      }));
-      rafRef.current = requestAnimationFrame(animate);
-    };
-    rafRef.current = requestAnimationFrame(animate);
-    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
-  }, [active]);
+function VoiceScreen({ onDisconnect }: { onDisconnect: () => void }) {
+  const agent = useAgent();
 
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 5, height: 120, cursor: "pointer" }}>
-      {heights.map((h, i) => (
-        <div key={i} style={{
-          width: 8, borderRadius: 8,
-          height: `${h * 100}%`,
-          background: "white",
-          transition: active ? "height 0.08s ease" : "height 0.4s ease",
-          opacity: active ? 0.95 : 0.6,
-        }} />
-      ))}
+    <div style={{
+      flex: 1, display: "flex", flexDirection: "column", justifyContent: "center",
+      alignItems: "center", textAlign: "center", padding: "0 24px",
+      animation: "fadeIn 0.6s ease both", position: "relative", zIndex: 5,
+    }}>
+      <p style={{
+        color: "white", fontSize: "clamp(18px, 3vw, 26px)", fontWeight: 800,
+        margin: "0 0 48px", fontFamily: "'Arial Black', sans-serif", opacity: 0.9,
+      }}>
+        {getStateLabel(agent.state)}
+      </p>
+      <div style={{
+        background: agent.state === "speaking"
+          ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.1)",
+        border: "2px solid rgba(255,255,255,0.4)",
+        borderRadius: 28, padding: "32px 40px",
+        transition: "background 0.3s, box-shadow 0.3s",
+        boxShadow: agent.state === "speaking"
+          ? "0 0 40px rgba(255,255,255,0.2)" : "none",
+        height: 184, display: "flex", alignItems: "center",
+      }}>
+        {agent.microphoneTrack && (
+          <BarVisualizer trackRef={agent.microphoneTrack} state={agent.state} barCount={30} />
+        )}
+      </div>
+      <RoomAudioRenderer />
+      <span onClick={onDisconnect} style={{
+        color: "white", fontWeight: 800, fontSize: 22, cursor: "pointer",
+        fontFamily: "'Arial Black', sans-serif", letterSpacing: 1, marginTop: 32,
+      }}>End</span>
     </div>
   );
 }
 
 export default function Cloud9() {
-  const [screen, setScreen] = useState<"home" | "mood" | "confirm" | "voice" | "menu">("home");
+  const [screen, setScreen] = useState<"home" | "mood" | "confirm" | "menu" | "voice">("home");
   const [selected, setSelected] = useState<number | null>(null);
-  const [voiceActive, setVoiceActive] = useState(false);
+  const [activity, setActivity] = useState<string | null>(null);
+  const [started, setStarted] = useState(false);
+
+  const moodRef = useRef<string>("");
+  const activityRef = useRef<string>("");
+
+  const tokenSource = useRef(
+    TokenSource.custom(async (options) => {
+      const res = await fetch("http://localhost:8000/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          room_name: options.roomName,
+          participant_identity: options.participantIdentity,
+          mood: moodRef.current,
+          activity: activityRef.current,
+        }),
+      });
+      return res.json();
+    })
+  ).current;
+
+  const session = useSession(tokenSource, { agentName: "my-agent" });
+
+  const handleConnect = (item: string) => {
+    const mood = selected !== null ? faces[selected].label : "";
+    moodRef.current = mood;
+    activityRef.current = item;
+    setActivity(item);
+    session.start();
+    setStarted(true);
+    setScreen("voice");
+  };
+
+  const handleDisconnect = () => {
+    session.end();
+    setStarted(false);
+    setScreen("home");
+  };
 
   const menuItems = ["Memory Games", "Reflection", "Vacation"];
 
   const selectedFace = selected !== null ? faces[selected] : null;
 
   return (
+    <SessionProvider session={session}>
     <div style={{ fontFamily: "'Segoe UI', sans-serif", overflowX: "hidden" }}>
       <style>{`
         @keyframes drift { from { transform: translateX(-250px); } to { transform: translateX(110vw); } }
@@ -103,6 +164,7 @@ export default function Cloud9() {
         .cta-btn { transition: all 0.2s; }
         .cta-btn:hover { transform: scale(1.04); }
         .face-hover:hover { transform: scale(1.1); transition: transform 0.2s; }
+        .lk-audio-bar-visualizer { --lk-va-bar-bg: rgba(255,255,255,0.3); --lk-fg: white; --lk-bg: transparent; gap: 5px; }
       `}</style>
 
       <section style={{ position: "relative", height: "100vh", background: "linear-gradient(180deg, #5ba3c9 0%, #7dbfe0 30%, #a8d8ea 60%, #cde8f0 80%, #dde9ee 100%)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
@@ -150,7 +212,7 @@ export default function Cloud9() {
             </p>
             <div style={{ display: "flex", gap: 20 }}>
               <button className="cta-btn" onClick={() => setScreen("mood")} style={{ background: "rgba(255,255,255,0.2)", border: "2px solid rgba(255,255,255,0.7)", color: "white", borderRadius: 30, padding: "18px 56px", fontWeight: 800, fontSize: 20, cursor: "pointer" }}>No</button>
-              <button className="cta-btn" onClick={() => { setScreen("voice"); setVoiceActive(false); }} style={{ background: "white", color: "#5ba3c9", border: "none", borderRadius: 30, padding: "18px 56px", fontWeight: 800, fontSize: 20, cursor: "pointer", boxShadow: "0 8px 30px rgba(0,0,0,0.12)" }}>Yes</button>
+              <button className="cta-btn" onClick={() => setScreen("menu")} style={{ background: "white", color: "#5ba3c9", border: "none", borderRadius: 30, padding: "18px 56px", fontWeight: 800, fontSize: 20, cursor: "pointer", boxShadow: "0 8px 30px rgba(0,0,0,0.12)" }}>Yes</button>
             </div>
           </div>
         )}
@@ -159,7 +221,7 @@ export default function Cloud9() {
         {screen === "menu" && (
           <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", gap: 28, padding: "0 40px", animation: "fadeIn 0.6s ease both", position: "relative", zIndex: 5 }}>
             {menuItems.map(item => (
-              <div key={item} style={{
+              <div key={item} onClick={() => handleConnect(item)} style={{
                 width: "100%", maxWidth: 360,
                 background: "rgba(100,140,170,0.55)",
                 borderRadius: 20,
@@ -180,32 +242,11 @@ export default function Cloud9() {
         )}
 
         {/* VOICE */}
-        {screen === "voice" && (
-          <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", textAlign: "center", padding: "0 24px", animation: "fadeIn 0.6s ease both", position: "relative", zIndex: 5 }}>
-            <p style={{ color: "white", fontSize: "clamp(18px, 3vw, 26px)", fontWeight: 800, margin: "0 0 48px", fontFamily: "'Arial Black', sans-serif", opacity: 0.9 }}>
-              {voiceActive ? "Listening..." : "Tap to speak"}
-            </p>
-            <div
-              onClick={() => setVoiceActive(v => !v)}
-              style={{
-                background: voiceActive ? "rgba(255,255,255,0.2)" : "rgba(255,255,255,0.1)",
-                border: "2px solid rgba(255,255,255,0.4)",
-                borderRadius: 28,
-                padding: "32px 40px",
-                cursor: "pointer",
-                transition: "background 0.3s",
-                boxShadow: voiceActive ? "0 0 40px rgba(255,255,255,0.2)" : "none",
-              }}
-            >
-              <Waveform active={voiceActive} />
-            </div>
-            <p style={{ color: "rgba(255,255,255,0.6)", fontSize: 14, marginTop: 24, fontWeight: 600 }}>
-              {voiceActive ? "Tap again to stop" : ""}
-            </p>
-            <span onClick={() => setScreen("menu")} style={{ color: "white", fontWeight: 800, fontSize: 22, cursor: "pointer", fontFamily: "'Arial Black', sans-serif", letterSpacing: 1, marginTop: 32 }}>Next</span>
-          </div>
+        {screen === "voice" && started && (
+          <VoiceScreen onDisconnect={handleDisconnect} />
         )}
       </section>
     </div>
+    </SessionProvider>
   );
 }
