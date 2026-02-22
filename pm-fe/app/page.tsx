@@ -85,11 +85,11 @@ function Waveform({ active }: { active: boolean }) {
 }
 
 export default function Cloud9() {
-  const [screen, setScreen] = useState<"home" | "mood" | "confirm" | "voice" | "menu">("home");
+  const [screen, setScreen] = useState<"home" | "mood" | "confirm" | "menu" | "voice">("home");
   const [selected, setSelected] = useState<number | null>(null);
   const [voiceActive, setVoiceActive] = useState(false);
 
-  const menuItems = ["Memory Games", "Reflection", "Vacation"];
+  const menuItems = ["Game", "Relax", "Chat"];
 
   const selectedFace = selected !== null ? faces[selected] : null;
 
@@ -110,7 +110,7 @@ export default function Cloud9() {
         {clouds.map(c => <Cloud key={c.id} {...c} />)}
 
         <nav style={{ position: "relative", zIndex: 10, display: "flex", justifyContent: "space-between", alignItems: "center", padding: "24px 48px" }}>
-          <span style={{ color: "white", fontWeight: 900, fontSize: 22, letterSpacing: 1 }}>☁ CLOUD9</span>
+          <span onClick={() => setScreen("home")} style={{ color: "white", fontWeight: 900, fontSize: 22, letterSpacing: 1, cursor: "pointer" }}>☁ CLOUD9</span>
         </nav>
 
         {/* HOME */}
@@ -118,7 +118,7 @@ export default function Cloud9() {
           <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", textAlign: "center", padding: "0 24px", animation: "fadeUp 1s ease both", position: "relative", zIndex: 5 }}>
             <h1 style={{ color: "white", fontSize: "clamp(52px, 10vw, 96px)", fontWeight: 900, letterSpacing: "-2px", textShadow: "0 4px 24px rgba(60,100,140,0.25)", margin: "0 0 40px", fontFamily: "'Arial Black', sans-serif" }}>CLOUD9</h1>
             <a className="cta-btn" onClick={() => setScreen("mood")} style={{ background: "white", color: "#5ba3c9", border: "none", borderRadius: 30, padding: "14px 36px", fontWeight: 800, fontSize: 15, cursor: "pointer", textDecoration: "none", display: "inline-flex", alignItems: "center", boxShadow: "0 8px 30px rgba(0,0,0,0.12)" }}>Begin</a>
-          </div>
+                      </div>
         )}
 
         {/* MOOD PICKER */}
@@ -150,7 +150,7 @@ export default function Cloud9() {
             </p>
             <div style={{ display: "flex", gap: 20 }}>
               <button className="cta-btn" onClick={() => setScreen("mood")} style={{ background: "rgba(255,255,255,0.2)", border: "2px solid rgba(255,255,255,0.7)", color: "white", borderRadius: 30, padding: "18px 56px", fontWeight: 800, fontSize: 20, cursor: "pointer" }}>No</button>
-              <button className="cta-btn" onClick={() => { setScreen("voice"); setVoiceActive(false); }} style={{ background: "white", color: "#5ba3c9", border: "none", borderRadius: 30, padding: "18px 56px", fontWeight: 800, fontSize: 20, cursor: "pointer", boxShadow: "0 8px 30px rgba(0,0,0,0.12)" }}>Yes</button>
+              <button className="cta-btn" onClick={() => setScreen("menu")} style={{ background: "white", color: "#5ba3c9", border: "none", borderRadius: 30, padding: "18px 56px", fontWeight: 800, fontSize: 20, cursor: "pointer", boxShadow: "0 8px 30px rgba(0,0,0,0.12)" }}>Yes</button>
             </div>
           </div>
         )}
@@ -158,8 +158,8 @@ export default function Cloud9() {
         {/* MENU */}
         {screen === "menu" && (
           <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", gap: 28, padding: "0 40px", animation: "fadeIn 0.6s ease both", position: "relative", zIndex: 5 }}>
-            {menuItems.map(item => (
-              <div key={item} style={{
+            {menuItems.map((item) => (
+              <div key={item} onClick={() => { setScreen("voice"); setVoiceActive(false); }} style={{
                 width: "100%", maxWidth: 360,
                 background: "rgba(100,140,170,0.55)",
                 borderRadius: 20,
